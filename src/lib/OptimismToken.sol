@@ -1858,7 +1858,7 @@ abstract contract Ownable is Context {
 // pragma solidity 0.8.12;
 
 
-
+import {IAlligatorOPV6} from "src/interfaces/IAlligatorOPV6.sol";
 
 /**
  * @dev The Optimism token used in governance and supporting voting and delegation.
@@ -1867,6 +1867,9 @@ abstract contract Ownable is Context {
  * for the purposes of enforcing the token inflation schedule.
  */
 contract GovernanceToken is ERC20Burnable, ERC20Votes, Ownable {
+    // TODO: Update to the correct address as OP Predeploy
+    address public constant ALLIGATOR = 0x4200000000000000000000000000000000000044;
+
     /**
      * @dev Constructor.
      */
@@ -1876,13 +1879,65 @@ contract GovernanceToken is ERC20Burnable, ERC20Votes, Ownable {
         _mint(_account, _amount);
     }
 
-    // The following functions are overrides required by Solidity.
+    function checkpoints(address account, uint32 pos) public virtual view override(ERC20Votes) returns (Checkpoint memory) {
+        if (IAlligatorOPV6(ALLIGATOR).migrated(account)) {
+            // TODO: update ERC20Votes imports in Alligator + here so that line below does not call Alligator's checkpoints function twice (or need to cast to local version of Checkpoint struct)
+            return Checkpoint(IAlligatorOPV6(ALLIGATOR).checkpoints(account, pos).fromBlock, IAlligatorOPV6(ALLIGATOR).checkpoints(account, pos).votes);
+        } else {
+            return super.checkpoints(account, pos);
+        }
+    }
+
+    function numCheckpoints(address account) public virtual view override(ERC20Votes) returns (uint32) {
+        if (IAlligatorOPV6(ALLIGATOR).migrated(account)) {
+            return IAlligatorOPV6(ALLIGATOR).numCheckpoints(account);
+        } else {
+            return super.numCheckpoints(account);
+        }
+    }
+
+    function delegates(address account)
+        public
+        view
+        virtual
+        override(ERC20Votes)
+        returns (address)
+    {
+        if (IAlligatorOPV6(ALLIGATOR).migrated(account)) {
+            return IAlligatorOPV6(ALLIGATOR).delegates(account);
+        } else {
+            return super.delegates(account);
+        }
+    }
+
+    function delegate(address delegatee) public virtual override {
+        IAlligatorOPV6(ALLIGATOR).delegate(delegatee);
+    }
+
+    function delegateBySig(
+        address delegatee,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public virtual override {
+        IAlligatorOPV6(ALLIGATOR).delegateBySig(
+            delegatee,
+            nonce,
+            expiry,
+            v,
+            r,
+            s
+        );
+    }
+
     function _afterTokenTransfer(
         address from,
         address to,
         uint256 amount
     ) internal override(ERC20, ERC20Votes) {
-        super._afterTokenTransfer(from, to, amount);
+        IAlligatorOPV6(ALLIGATOR).afterTokenTransfer(from, to, amount);
     }
 
     function _mint(address to, uint256 amount)
